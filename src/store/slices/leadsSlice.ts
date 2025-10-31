@@ -1,68 +1,154 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-export interface Lead {
-  id: string;
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
-  status: 'new' | 'contacted' | 'qualified' | 'lost';
-  value: number;
-  createdAt: string;
-}
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { LeadDto, CreateLeadCommand, UpdateLeadCommand, GetLeadsQueryParams } from '../../types/leads.types';
+import { LeadsService } from '../../services/leadsService';
 
 interface LeadsState {
-  leads: Lead[];
+  leads: LeadDto[];
+  currentLead: LeadDto | null;
   loading: boolean;
+  error: string | null;
 }
 
 const initialState: LeadsState = {
-  leads: [
-    {
-      id: '1',
-      name: 'John Doe',
-      company: 'Acme Corp',
-      email: 'john@acme.com',
-      phone: '555-0100',
-      status: 'new',
-      value: 50000,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      company: 'Tech Solutions',
-      email: 'jane@techsolutions.com',
-      phone: '555-0101',
-      status: 'contacted',
-      value: 75000,
-      createdAt: new Date().toISOString(),
-    },
-  ],
+  leads: [],
+  currentLead: null,
   loading: false,
+  error: null,
 };
+
+// Async thunks
+export const fetchLeads = createAsyncThunk(
+  'leads/fetchLeads',
+  async ({ leadsService, params }: { leadsService: LeadsService; params?: GetLeadsQueryParams }) => {
+    const leads = await leadsService.getLeads(params);
+    return leads;
+  }
+);
+
+export const fetchLeadById = createAsyncThunk(
+  'leads/fetchLeadById',
+  async ({ leadsService, id, tenantId }: { leadsService: LeadsService; id: string; tenantId?: string }) => {
+    const lead = await leadsService.getLeadById(id, tenantId);
+    return lead;
+  }
+);
+
+export const createLead = createAsyncThunk(
+  'leads/createLead',
+  async ({ leadsService, command }: { leadsService: LeadsService; command: CreateLeadCommand }) => {
+    const lead = await leadsService.createLead(command);
+    return lead;
+  }
+);
+
+export const updateLead = createAsyncThunk(
+  'leads/updateLead',
+  async ({ leadsService, id, command }: { leadsService: LeadsService; id: string; command: UpdateLeadCommand }) => {
+    const lead = await leadsService.updateLead(id, command);
+    return lead;
+  }
+);
+
+export const deleteLead = createAsyncThunk(
+  'leads/deleteLead',
+  async ({ leadsService, id, tenantId }: { leadsService: LeadsService; id: string; tenantId?: string }) => {
+    await leadsService.deleteLead(id, tenantId);
+    return id;
+  }
+);
 
 const leadsSlice = createSlice({
   name: 'leads',
   initialState,
   reducers: {
-    addLead: (state, action: PayloadAction<Lead>) => {
-      state.leads.push(action.payload);
+    clearError: (state) => {
+      state.error = null;
     },
-    updateLead: (state, action: PayloadAction<Lead>) => {
+    clearCurrentLead: (state) => {
+      state.currentLead = null;
+    },
+  },
+  extraReducers: (builder) => {
+    // Fetch leads
+    builder.addCase(fetchLeads.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchLeads.fulfilled, (state, action) => {
+      state.loading = false;
+      state.leads = action.payload;
+    });
+    builder.addCase(fetchLeads.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to fetch leads';
+    });
+
+    // Fetch lead by ID
+    builder.addCase(fetchLeadById.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchLeadById.fulfilled, (state, action) => {
+      state.loading = false;
+      state.currentLead = action.payload;
+    });
+    builder.addCase(fetchLeadById.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to fetch lead';
+    });
+
+    // Create lead
+    builder.addCase(createLead.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(createLead.fulfilled, (state, action) => {
+      state.loading = false;
+      state.leads.push(action.payload);
+    });
+    builder.addCase(createLead.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to create lead';
+    });
+
+    // Update lead
+    builder.addCase(updateLead.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(updateLead.fulfilled, (state, action) => {
+      state.loading = false;
       const index = state.leads.findIndex((lead) => lead.id === action.payload.id);
       if (index !== -1) {
         state.leads[index] = action.payload;
       }
-    },
-    deleteLead: (state, action: PayloadAction<string>) => {
+      if (state.currentLead?.id === action.payload.id) {
+        state.currentLead = action.payload;
+      }
+    });
+    builder.addCase(updateLead.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to update lead';
+    });
+
+    // Delete lead
+    builder.addCase(deleteLead.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(deleteLead.fulfilled, (state, action) => {
+      state.loading = false;
       state.leads = state.leads.filter((lead) => lead.id !== action.payload);
-    },
-    setLoading: (state, action: PayloadAction<boolean>) => {
-      state.loading = action.payload;
-    },
+      if (state.currentLead?.id === action.payload) {
+        state.currentLead = null;
+      }
+    });
+    builder.addCase(deleteLead.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to delete lead';
+    });
   },
 });
 
-export const { addLead, updateLead, deleteLead, setLoading } = leadsSlice.actions;
+export const { clearError, clearCurrentLead } = leadsSlice.actions;
 export default leadsSlice.reducer;

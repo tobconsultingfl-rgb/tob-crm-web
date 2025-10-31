@@ -100,9 +100,19 @@ tob-crm-web/
 │   │   └── Opportunities/  # Opportunities management
 │   ├── config/             # Configuration files
 │   │   └── authConfig.ts   # MSAL authentication config
+│   ├── services/           # API services (generated from Swagger)
+│   │   ├── apiClient.ts    # Base API client with MSAL auth
+│   │   ├── rolesService.ts # Roles API service
+│   │   ├── tenantsService.ts # Tenants API service
+│   │   ├── usersService.ts # Users API service
+│   │   ├── userRolesService.ts # User Roles API service
+│   │   ├── index.ts        # Service exports and factory
+│   │   └── README.md       # API services documentation
 │   ├── store/              # Redux store
 │   │   ├── index.ts        # Store configuration
 │   │   └── slices/         # Redux slices
+│   ├── types/              # TypeScript type definitions
+│   │   └── index.ts        # API types (generated from Swagger)
 │   ├── App.tsx             # Main application component
 │   └── main.tsx            # Application entry point
 ├── index.html
@@ -156,6 +166,65 @@ The application uses Redux Toolkit with the following slices:
 3. User authenticates with Microsoft credentials
 4. MSAL returns authentication token
 5. Application displays CRM interface
+
+## API Services
+
+The application includes auto-generated TypeScript services from the TOB Consulting Identity API Swagger specification.
+
+### Generated Services
+
+- **RolesService**: Manage roles and permissions
+- **TenantsService**: Manage tenant organizations
+- **UsersService**: Manage user accounts
+- **UserRolesService**: Assign and manage user role assignments
+
+### Usage
+
+```typescript
+import { useMsal } from '@azure/msal-react';
+import { createApiServices } from './services';
+
+function MyComponent() {
+  const { instance } = useMsal();
+  const apiServices = createApiServices(instance);
+
+  // Get current user
+  const currentUser = await apiServices.users.getCurrentUser();
+
+  // Get all tenants
+  const tenants = await apiServices.tenants.getAllTenants();
+
+  // Create a new user
+  const newUser = await apiServices.users.createUser({
+    tenantId: 'tenant-id',
+    userName: 'jdoe',
+    password: 'password',
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+    mobilePhone: '555-1234'
+  });
+}
+```
+
+### API Documentation
+
+See `src/services/README.md` for complete API service documentation and examples.
+
+### TypeScript Types
+
+All API types are available in `src/types/index.ts`:
+
+```typescript
+import {
+  UserDto,
+  TenantDto,
+  RoleDto,
+  CreateUserRequest,
+  UpdateUserRequest,
+  State
+} from './types';
+```
 
 ## License
 

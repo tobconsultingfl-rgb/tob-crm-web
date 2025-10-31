@@ -3,8 +3,8 @@ import { Configuration, PopupRequest } from '@azure/msal-browser';
 // MSAL configuration
 export const msalConfig: Configuration = {
   auth: {
-    clientId: 'YOUR_CLIENT_ID', // Replace with your Azure AD app client ID
-    authority: 'https://login.microsoftonline.com/YOUR_TENANT_ID', // Replace with your tenant ID
+    clientId: 'aa3ed19b-173e-4c54-9878-678dd57ace91', // Replace with your Azure AD app client ID
+    authority: 'https://login.microsoftonline.com/82c3240a-fc69-499d-932c-65e6f2fae460', // Replace with your tenant ID
     redirectUri: window.location.origin,
   },
   cache: {

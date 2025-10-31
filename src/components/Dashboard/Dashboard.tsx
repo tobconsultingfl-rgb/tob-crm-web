@@ -12,7 +12,7 @@ const Dashboard = () => {
   const opportunities = useSelector((state: RootState) => state.opportunities.opportunities);
 
   const totalRevenue = opportunities.reduce((sum, opp) => sum + opp.amount, 0);
-  const totalLeadValue = leads.reduce((sum, lead) => sum + lead.value, 0);
+  const totalLeadValue = leads.reduce((sum, lead) => sum + (lead.estimatedValue || 0), 0);
 
   const StatCard = ({
     title,

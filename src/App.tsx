@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AppBar,
   Box,
@@ -12,9 +12,12 @@ import {
   Menu,
   MenuItem,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from './config/authConfig';
+import { createApiServices } from './services';
+import { UserDto } from './types';
 import Dashboard from './components/Dashboard/Dashboard';
 import Leads from './components/Leads/Leads';
 import Accounts from './components/Accounts/Accounts';
@@ -51,6 +54,33 @@ function App() {
   const { instance, accounts } = useMsal();
   const [tabValue, setTabValue] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [currentUser, setCurrentUser] = useState<UserDto | null>(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+
+  const isAuthenticated = accounts.length > 0;
+
+  // Fetch current user data when authenticated
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (!isAuthenticated) {
+        setCurrentUser(null);
+        return;
+      }
+
+      try {
+        setLoadingUser(true);
+        const apiServices = createApiServices(instance);
+        const userData = await apiServices.users.getCurrentUser();
+        setCurrentUser(userData);
+      } catch (error) {
+        console.error('Failed to fetch current user:', error);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    fetchCurrentUser();
+  }, [isAuthenticated, instance]);
 
   const handleLogin = () => {
     instance.loginPopup(loginRequest).catch((e) => {
@@ -63,6 +93,7 @@ function App() {
       console.error(e);
     });
     setAnchorEl(null);
+    setCurrentUser(null);
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -77,8 +108,21 @@ function App() {
     setAnchorEl(null);
   };
 
-  const isAuthenticated = accounts.length > 0;
-  const userName = accounts[0]?.name || 'User';
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName} ${currentUser.lastName}`;
+    }
+    return currentUser?.username || accounts[0]?.name || 'User';
+  };
+
+  const getUserInitials = () => {
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`;
+    }
+    const name = getUserDisplayName();
+    return name.charAt(0).toUpperCase();
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -89,21 +133,58 @@ function App() {
           </Typography>
           {isAuthenticated ? (
             <>
-              <IconButton onClick={handleMenuOpen} color="inherit">
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                  {userName.charAt(0)}
-                </Avatar>
-              </IconButton>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-              >
-                <MenuItem disabled>
-                  <Typography variant="body2">{userName}</Typography>
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>Logout</MenuItem>
-              </Menu>
+              {loadingUser ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body2" sx={{ lineHeight: 1.2 }}>
+                        {getUserDisplayName()}
+                      </Typography>
+                      {currentUser?.email && (
+                        <Typography variant="caption" sx={{ opacity: 0.8, lineHeight: 1 }}>
+                          {currentUser.email}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  <IconButton onClick={handleMenuOpen} color="inherit">
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                      {getUserInitials()}
+                    </Avatar>
+                  </IconButton>
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                  >
+                    <MenuItem disabled>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {getUserDisplayName()}
+                        </Typography>
+                        {currentUser?.email && (
+                          <Typography variant="caption" color="text.secondary">
+                            {currentUser.email}
+                          </Typography>
+                        )}
+                        {currentUser?.tenantName && (
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            {currentUser.tenantName}
+                          </Typography>
+                        )}
+                        {currentUser?.roleName && (
+                          <Typography variant="caption" display="block" color="primary">
+                            {currentUser.roleName}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                    <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                  </Menu>
+                </>
+              )}
             </>
           ) : (
             <Button color="inherit" onClick={handleLogin} startIcon={<AccountCircleIcon />}>
